@@ -1,7 +1,14 @@
-// Game Board
+// DOM Elements
+const startGameBtn = document.getElementById('startGame')
+const gameBoardDiv = document.getElementById('gameBoard')
+const gameGridDiv = document.getElementById('gameGrid')
+const gameCellList = document.querySelectorAll('.cell')
+const displayText = document.getElementById('displayText')
+
+// Game Board Module
 const gameBoard = (() => {
-	const board = Array(9).fill(null)
-	const getBoard = () => board
+	const board = Array(9).fill(null) // Create an array with 8 indecies
+	const getBoard = () => [...board] // Returns copy of board array
 	const placeMarker = (index, marker) => {
 		if (board[index] === null) {
 			board[index] = marker
@@ -14,58 +21,30 @@ const gameBoard = (() => {
 })()
 
 // Player Factory
-const createPlayer = (name, symbol) => {
-	return { name, symbol }
-}
+const createPlayer = (name, symbol) => ({ name, symbol })
 
+// Game Controller Factory
 const createGame = () => {
-	const { getBoard, resetBoard, placeMarker } = gameBoard
 	const player1 = createPlayer('Player 1', 'X')
 	const player2 = createPlayer('Player 2', 'O')
 	let currPlayer = player1
+	let isGameActive = false
+	const { getBoard, placeMarker, resetBoard } = gameBoard
 
-	// Start game
-	const start = () => {
-		console.log(
-			`${currPlayer.name}, it's your turn. You are ${currPlayer.symbol}'s`
-		)
-		console.log(getBoard())
-	}
-
-	// Player makes a move
-	const makeMove = () => {
-		const selectSquare = prompt('Please select a square (0-8)')
-		const index = parseInt(selectSquare)
-
-		if (index < 0 || index > 8) {
-			console.log('Invalid input. Please enter a number between 0 and 8')
-			makeMove()
-			return
-		}
-
-		if (!placeMarker(index, currPlayer.symbol)) {
-			console.log(
-				'That square is already taken, please select a different square'
-			)
-			makeMove()
-			return
-		}
-
-		console.log(getBoard())
-		checkForWin()
-		switchPlayer()
-		console.log(
-			`${currPlayer.name}, now it's your turn. You are ${currPlayer.symbol}`
-		)
+	// DRY - prevents repetitve update of display text
+	const updateDisplayText = () => {
+		displayText.textContent = `${currPlayer.name}, it's your turn. You are ${currPlayer.symbol}'s`
 	}
 
 	// Switch turns
 	const switchPlayer = () => {
 		currPlayer = currPlayer === player1 ? player2 : player1
+		updateDisplayText()
 	}
 
-	// Check for win
+	// --- CHECK FOR WIN/TIE ---
 	const checkForWin = () => {
+		const board = getBoard()
 		const winConditions = [
 			[0, 1, 2],
 			[3, 4, 5],
@@ -77,54 +56,67 @@ const createGame = () => {
 			[2, 4, 6]
 		]
 
-		const board = getBoard()
 		return winConditions.some(condition =>
 			condition.every(index => board[index] === currPlayer.symbol)
 		)
 	}
 
-	// Check for tie
-	const checkForTie = () => {
-		return getBoard().every(cell => cell !== null)
-	}
+	const checkForTie = () => getBoard().every(cell => cell !== null)
 
-	// Game over
-	const gameOver = winner => {
-		if (winner) {
-			console.log(`${winner.name} wins!`)
-		} else {
-			console.log(`It's a tie!`)
-		}
+	// Player makes a move
+	const handlePlayerMove = e => {
+		const index = parseInt(e.target.dataset.index)
+		const marker = currPlayer.symbol
+		const cell = e.target
 
-		resetBoard()
-		console.log(getBoard())
-	}
+		if (!isNaN(index) && placeMarker(index, marker)) {
+			cell.textContent = marker
 
-	// Single round
-	const playRound = () => {
-		makeMove()
-		if (checkForWin()) {
-			gameOver(currPlayer)
-			return true
+			if (checkForWin()) {
+				gameOver(currPlayer)
+			} else if (checkForTie()) {
+				gameOver(null)
+			} else {
+				switchPlayer()
+			}
+		} else if (!isNaN(index)) {
+			displayText.textContent =
+				'Invalid Move! That space is already taken, try again!'
 		}
-		if (checkForTie()) {
-			gameOver(null)
-			return true
-		}
-		return false
 	}
 
 	// Start the game
 	const startGame = () => {
-		start()
-		let gameIsOver = false
-		while (!gameIsOver) {
-			gameIsOver = playRound()
-		}
+		isGameActive = true
+		startGameBtn.classList.add('hidden')
+		displayText.classList.remove('hidden')
+		resetBoard()
+		gameCellList.forEach(cell => {
+			cell.textContent = '' // Clear the UI
+			cell.addEventListener('click', handlePlayerMove, { once: true })
+		})
+		currPlayer = player1
+		updateDisplayText()
+		startGameBtn.textContent = 'Play Again'
 	}
 
-	return { start: startGame, makeMove, gameOver }
+	// Game over
+	const gameOver = winner => {
+		isGameActive = false
+		if (winner) {
+			displayText.textContent = `${winner.name} wins!`
+		} else {
+			displayText.textContent = `It's a tie!`
+		}
+
+		startGameBtn.classList.remove('hidden')
+		gameCellList.forEach(cell => {
+			cell.removeEventListener('click', handlePlayerMove)
+		})
+	}
+
+	return { startGame }
 }
 
 const game = createGame()
-game.start()
+startGameBtn.addEventListener('click', game.startGame)
